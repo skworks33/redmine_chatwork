@@ -94,7 +94,7 @@ class ChatWorkListener < Redmine::Hook::Listener
   end
 
   def create_body(body=nil, header=nil, footer=nil)
-    result = '[info]'
+    result = '[toall][info]'
 
     if header
       result +=
