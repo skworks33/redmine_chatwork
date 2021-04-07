@@ -162,6 +162,7 @@ class ChatWorkListener < Redmine::Hook::Listener
         (proj.custom_value_for(cf).value rescue nil),
         Setting.plugin_redmine_chatwork[:room],
     ].find { |v| v.present? }
+    return nil if val.blank?
 
     rid = val.match(/#!rid\d+/)
 
