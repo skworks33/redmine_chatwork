@@ -3,8 +3,8 @@ require 'httpclient'
 class ChatWorkListener < Redmine::Hook::Listener
   def controller_issues_new_after_save(context={})
     issue = context[:issue]
-    room = room_for_project issue.project
-    disabled = check_disabled issue.project
+    room = get_room_for_user_or_group issue.assigned_to # get chatwork room of the user specified in assign_to.
+    disabled = check_disabled_for_user_or_group issue.assigned_to
 
     return if disabled
     return unless room
@@ -28,8 +28,8 @@ class ChatWorkListener < Redmine::Hook::Listener
   def controller_issues_edit_after_save(context={})
     issue = context[:issue]
     journal = context[:journal]
-    room = room_for_project issue.project
-    disabled = check_disabled issue.project
+    room = get_room_for_user_or_group issue.assigned_to
+    disabled = check_disabled_for_user_or_group issue.assigned_to
 
     return if disabled
     return unless room and Setting.plugin_redmine_chatwork[:post_updates] == '1'
@@ -58,8 +58,8 @@ class ChatWorkListener < Redmine::Hook::Listener
 
     project = context[:project]
     page = context[:page]
-    room = room_for_project project
-    disabled = check_disabled project
+    room = get_room_for_user_or_group issue.assigned_to
+    disabled = check_disabled_for_user_or_group issue.assigned_to
 
     return if disabled
 
@@ -153,6 +153,28 @@ class ChatWorkListener < Redmine::Hook::Listener
     true
   end
 
+  def check_disabled_for_user_or_group(assigned_to)
+    return nil if assigned_to.blank?
+
+    if assigned_to.class.name == "User"
+        cf = UserCustomField.find_by_name("ChatWork Disabled")
+    elsif assigned_to.class.name == "Group"
+        cf = GroupCustomField.find_by_name("ChatWork Disabled")
+    end
+
+    state = assigned_to.custom_value_for(cf).value rescue nil
+
+    if state == nil
+      return false
+    end
+
+    if state == '0'
+      return false
+    end
+
+    true
+  end
+
   def room_for_project(proj)
     return nil if proj.blank?
 
@@ -168,6 +190,28 @@ class ChatWorkListener < Redmine::Hook::Listener
 
     rid[0][5..val.length]
   end
+
+  def get_room_for_user_or_group(assigned_to)
+
+    return nil if assigned_to.blank?
+
+    if assigned_to.class.name == "User"
+        cf = UserCustomField.find_by_name("ChatWork")
+    elsif assigned_to.class.name == "Group"
+        cf = GroupCustomField.find_by_name("ChatWork")
+    end
+
+    val = [
+        (assigned_to.custom_value_for(cf).value rescue nil),
+        Setting.plugin_redmine_chatwork[:room],
+    ].find { |v| v.present? }
+    return nil if val.blank?
+
+    rid = val.match(/#!rid\d+/)
+
+    rid[0][5..val.length]
+  end
+
 
   def detail_to_field(detail)
     if detail.property == "cf"
